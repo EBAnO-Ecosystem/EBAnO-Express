@@ -603,7 +603,7 @@ class ClassGlobalExplanationModel:
         # KDE plot
         lm = sns.jointplot([fp["feature_scores"][PerturbationScores.col_nPIR] for fp in f_p_report],
                            [fp["feature_scores"][PerturbationScores.col_nPIRP] for fp in f_p_report],
-                           kind="kde", height=8)
+                           kind="kde", height=12)
         ax = lm.ax_joint
         ax.clear()
 
