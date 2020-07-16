@@ -9,6 +9,7 @@ from tensorflow.python import keras
 from tensorflow.python.keras import backend as K
 from PIL import Image, ImageFilter
 
+import matplotlib
 import matplotlib.pyplot as plt
 import seaborn as sns
 import sys
@@ -199,7 +200,7 @@ class PerturbationScores:
 
 class LocalExplanation:
 
-    def __init__(self, input_image, class_of_interest, features_map, model, preprocess_func=None):
+    def __init__(self, input_image, class_of_interest, features_map, model, preprocess_func):
         self.input_image = input_image
         self.class_of_interest = class_of_interest
         self.features_map = features_map
@@ -217,21 +218,13 @@ class LocalExplanation:
         self.informativeness = None
 
     def predict_with_model(self, img):
-        input_image_arr = self._image_to_array(img)
-
         if self.preprocess_func:
-            input_image_arr = self.preprocess_func(input_image_arr)
+            input_image_arr = self.preprocess_func(img)
         else:
-            print("WARNING! - No preprocess applied.")
+            raise Exception("Preprocessing function not provided. You should always provide the same preprocess function used on the input image.")
 
         p = self.model.predict(input_image_arr)
         return p[0]
-
-    @staticmethod
-    def _image_to_array(img):
-        x = image.img_to_array(img)
-        x = np.expand_dims(x, axis=0)
-        return x
 
     @staticmethod
     def _find_centroid(init_x, X, n_iter=10):
@@ -240,7 +233,6 @@ class LocalExplanation:
 
         for i in range(n_iter):
             dist = np.linalg.norm(f_X - new_x, axis=1)
-            # print("dist", dist)
             if f_X[dist < np.mean(dist)].__len__() > 0:
                 f_X = f_X[dist < np.mean(dist)]
             else:
@@ -307,6 +299,12 @@ class LocalExplanation:
             ax.grid(False)
             ax.set_xticks([])
             ax.set_yticks([])
+
+            cb_ax = fig.add_axes([1, 0.1, 0.05, 0.8])
+            cb = matplotlib.colorbar.ColorbarBase(cb_ax, cmap=self.cmap,
+                                   norm=matplotlib.colors.Normalize(vmin=-1, vmax=1),
+                                   orientation='vertical')
+            cb.set_label(PerturbationScores.col_nPIR)
             return ax
         else:
             print("WARNING! - fit explanation first.")
@@ -423,12 +421,9 @@ class LocalExplanation:
         {'Informativeness:' + str(round(self.informativeness,2)) if self.informativeness else 'Not fitted'}")
 
 
-class EBAnO_express:
+class LocalExplanationModel:
 
-    def __init__(self, model, preprocess_func=None, max_features=10, k_pca=30, layers_to_analyze=None):
-
-        # self.input_image = input_image
-        # self.class_of_interest = class_of_interest
+    def __init__(self, model, preprocess_func, max_features=10, k_pca=30, layers_to_analyze=None):
 
         self.model = model
         self.model_input_shape = self.model._feed_input_shapes[0][1:3]
@@ -437,14 +432,15 @@ class EBAnO_express:
         self.max_features = max_features
 
         self.preprocess_func = preprocess_func
-        if preprocess_func is None:
-            print("WARNING! - No preprocess will be applied to the input image.")
 
         # Layers
         self.layer_indexes = self._get_conv_layer_indexes(self.model)
         # print(self.layer_indexes)
         if not layers_to_analyze:
             layers_to_analyze = int(np.log(self.layer_indexes.__len__())/np.log(2))
+        else:
+            if layers_to_analyze > self.layer_indexes.__len__():
+                raise Exception(f"# layers to analyze has to be lower or eqaul to the number of available convolutional layers '{self.layer_indexes.__len__()}'.")
 
         # print("# layers_to_analyze:", layers_to_analyze)
         self.layer_indexes = self.layer_indexes[-layers_to_analyze:]
@@ -455,12 +451,6 @@ class EBAnO_express:
         # Explanation
         self.local_explanations = {}
         self.best_explanation = None
-
-    @staticmethod
-    def _image_to_array(img):
-        x = image.img_to_array(img)
-        x = np.expand_dims(x, axis=0)
-        return x
 
     @staticmethod
     def _get_conv_layer_indexes(model):
@@ -500,8 +490,8 @@ class EBAnO_express:
         return X_r
 
     def extract_hypercolumns(self, input_image, verbose=False):
-        x = _image_to_array(input_image)
-        x = self.preprocess_func(x)
+        #x = self._image_to_array(input_image)
+        x = self.preprocess_func(input_image)
 
         hc = self.get_hypercolumns(x)
         print("Hypecolumns shape:", hc.shape) if verbose else None
@@ -528,7 +518,7 @@ class EBAnO_express:
 
         for n_f in range(2, self.max_features+1):
             features_map = self.compute_features_map(hc, n_f)
-            print(f"> Computing explanation with '{n_f}' features...")
+            print(f"> Computing explanation with '{n_f}' features...") if verbose else None
 
             local_expl_model = LocalExplanation(input_image, class_of_interest, features_map, self.model,
                                                 preprocess_func=self.preprocess_func)
@@ -546,70 +536,3 @@ class EBAnO_express:
             return None
 
         return max(self.local_explanations.values(), key=lambda x: x.informativeness)
-
-
-if __name__ == '__main__':
-
-    ##!
-    from tensorflow.python.keras.preprocessing import image
-    from tensorflow.keras.applications import vgg16, VGG16
-
-    def load_image(image_url, target_size):
-        img = image.load_img(image_url, target_size=target_size)
-        return img
-
-    def _image_to_array(img):
-        x = image.img_to_array(img)
-        x = np.expand_dims(x, axis=0)
-        return x
-
-
-    IMAGE_URL = "/Users/francescoventura/PycharmProjects/EBAnO-Express/demo_input/pizza.png"
-
-
-    VGG16_model = VGG16(include_top=True, weights='imagenet', input_tensor=None,
-                                              input_shape=None, pooling=None, classes=1000)
-
-    target_size = VGG16_model._feed_input_shapes[0][1:3]
-    print(target_size)
-
-    img = load_image(IMAGE_URL, target_size)
-    x = _image_to_array(img)
-    x = vgg16.preprocess_input(x)
-    predictions = VGG16_model.predict(x)
-
-    top_preds = 10
-    dec_pred = vgg16.decode_predictions(predictions, top=top_preds)[0]
-    print("Predictions:", dec_pred)
-
-    p_idx = np.argsort(predictions[0])[::-1]
-    preds_idx = list(zip(p_idx[:top_preds], predictions[0][p_idx][:top_preds]))
-    print("Predictions indexes:", preds_idx)
-
-    ##!
-
-    img = load_image(IMAGE_URL, target_size)
-    print("Image shape:", img.size)
-
-    ebano_exp = EBAnO_express(VGG16_model, preprocess_func=vgg16.preprocess_input, max_features=5, layers_to_analyze=5)
-    print(ebano_exp)
-
-    # print(ebano_exp.extract_hypercolumns(input_image=img, verbose=True).shape)
-
-    print(ebano_exp.fit_explanations(img, 455, verbose=False))
-
-    ##!
-    print(ebano_exp.best_explanation)
-
-    ebano_exp.best_explanation.show_features_map()
-    plt.show()
-    plt.close()
-
-    ebano_exp.best_explanation.show_visual_explanation()
-    plt.show()
-    plt.close()
-
-    ebano_exp.best_explanation.show_numerical_explanation()
-    plt.show()
-    plt.close()
-
