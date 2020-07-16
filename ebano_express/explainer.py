@@ -1,6 +1,7 @@
 from collections import OrderedDict
 
 import numpy as np
+from matplotlib.patches import Rectangle
 from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import normalize
@@ -11,6 +12,7 @@ from PIL import Image, ImageFilter
 
 import matplotlib
 import matplotlib.pyplot as plt
+from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 import seaborn as sns
 import sys
 
@@ -291,7 +293,7 @@ class LocalExplanation:
 
         return ax
 
-    def show_visual_explanation(self):
+    def show_visual_explanation(self, color_bar=True):
         if self.visual_explanation:
             fig, ax = plt.subplots(figsize=(5, 5))
             fig.tight_layout()
@@ -300,15 +302,15 @@ class LocalExplanation:
             ax.set_xticks([])
             ax.set_yticks([])
 
-            cb_ax = fig.add_axes([1, 0.1, 0.05, 0.8])
-            cb = matplotlib.colorbar.ColorbarBase(cb_ax, cmap=self.cmap,
-                                   norm=matplotlib.colors.Normalize(vmin=-1, vmax=1),
-                                   orientation='vertical')
-            cb.set_label(PerturbationScores.col_nPIR)
+            if color_bar:
+                cb_ax = fig.add_axes([1, 0.12, 0.05, 0.8])
+                cb = matplotlib.colorbar.ColorbarBase(cb_ax, cmap=self.cmap,
+                                       norm=matplotlib.colors.Normalize(vmin=-1, vmax=1),
+                                       orientation='vertical')
+                cb.set_label(PerturbationScores.col_nPIR)
             return ax
         else:
-            print("WARNING! - fit explanation first.")
-        return None
+            raise Exception("Fit explanation first.")
 
     def show_numerical_explanation(self):
 
@@ -326,8 +328,7 @@ class LocalExplanation:
 
             return ax
         else:
-            print("WARNING! - fit explanation first.")
-        return None
+            raise Exception("Fit explanation first.")
 
     def get_perturbed_input(self, feature_mask):
         im = self.input_image.copy()
@@ -404,27 +405,35 @@ class LocalExplanation:
             _df = pd.DataFrame(self.numerical_explanation).T.sort_index()
             return _df
         else:
-            print("WARNING! - fit explanation first.")
-        return None
+            raise Exception("Fit explanation first.")
 
     def get_visual_explanation(self):
         if self.visual_explanation:
             return self.visual_explanation
         else:
-            print("WARNING! - fit explanation first.")
-        return None
+            raise Exception("Fit explanation first.")
+
+    def get_interpretable_feature(self, f_idx):
+        if (f_idx < min(self.feature_ids)) or (f_idx > max(self.feature_ids)):
+            raise Exception(f"Feature idx '{f_idx}' out of range.")
+
+        feature_mask = self.get_feature_mask_image(f_idx)
+        masked_feature = self.input_image.copy()
+        masked_feature.putalpha(feature_mask)
+        return masked_feature
 
     def __str__(self):
         return (f"LocalExplanation\
         Class of interest: {self.class_of_interest}\
-        # Features: {self.feature_ids.__len__()}\
+        # Inf. Feat.: {self.feature_ids.__len__()}\
         {'Informativeness:' + str(round(self.informativeness,2)) if self.informativeness else 'Not fitted'}")
 
 
 class LocalExplanationModel:
 
-    def __init__(self, model, preprocess_func, max_features=10, k_pca=30, layers_to_analyze=None):
-
+    def __init__(self,  input_image, class_of_interest, model, preprocess_func, max_features=10, k_pca=30, layers_to_analyze=None):
+        self.input_image = input_image
+        self.class_of_interest = class_of_interest
         self.model = model
         self.model_input_shape = self.model._feed_input_shapes[0][1:3]
 
@@ -468,7 +477,6 @@ class LocalExplanationModel:
 
     def get_hypercolumns(self, input_image):
         feature_maps = self.get_model_features(input_image)
-        # print(feature_maps.__len__(), "X", feature_maps[0].shape)
 
         hypercolumns = []
         count = 0
@@ -490,7 +498,6 @@ class LocalExplanationModel:
         return X_r
 
     def extract_hypercolumns(self, input_image, verbose=False):
-        #x = self._image_to_array(input_image)
         x = self.preprocess_func(input_image)
 
         hc = self.get_hypercolumns(x)
@@ -506,21 +513,21 @@ class LocalExplanationModel:
 
     def compute_features_map(self, hc, n_features):
         hc_n = normalize(hc, norm='l2', axis=1)
-        kmeans_model = KMeans(n_clusters=n_features, max_iter=300, n_jobs=4)
+        kmeans_model = KMeans(n_clusters=n_features, max_iter=300, n_jobs=-1)
         features_labels = kmeans_model.fit_predict(hc_n)
         features_map = features_labels.reshape(self.model_input_shape[0], self.model_input_shape[1]).astype(np.uint8)
         features_map += 1
         return features_map
 
-    def fit_explanations(self, input_image, class_of_interest, verbose=False):
+    def fit_explanation(self, verbose=False):
 
-        hc = self.extract_hypercolumns(input_image, verbose=verbose)
+        hc = self.extract_hypercolumns(self.input_image, verbose=verbose)
 
         for n_f in range(2, self.max_features+1):
             features_map = self.compute_features_map(hc, n_f)
             print(f"> Computing explanation with '{n_f}' features...") if verbose else None
 
-            local_expl_model = LocalExplanation(input_image, class_of_interest, features_map, self.model,
+            local_expl_model = LocalExplanation(self.input_image, self.class_of_interest, features_map, self.model,
                                                 preprocess_func=self.preprocess_func)
 
             local_expl_model.fit_explanation()
@@ -532,7 +539,112 @@ class LocalExplanationModel:
 
     def compute_best_explanation(self):
         if self.local_explanations.items().__len__() == 0:
-            print("WARNING! - Fit explanations first.")
-            return None
+            raise Exception("Fit explanation first.")
 
         return max(self.local_explanations.values(), key=lambda x: x.informativeness)
+
+
+class ClassGlobalExplanationModel:
+
+    def __init__(self, input_images, class_of_interest, model, preprocess_func, max_features=10, k_pca=30, layers_to_analyze=None):
+        self.model = model
+        self.preprocess_func=preprocess_func
+        self.max_features = max_features
+        self.k_pca = k_pca
+        self.layers_to_analyze = layers_to_analyze
+
+        self.input_images = input_images
+        self.class_of_interest = class_of_interest
+        self.local_explanation_models = {}
+        self.global_explanation = []
+
+    def fit_explanation(self, verbose=False):
+        for idx, im in enumerate(self.input_images):
+            local_expl_model = LocalExplanationModel(im, self.class_of_interest, self.model, self.preprocess_func,
+                                                     max_features=self.max_features, k_pca=self.k_pca,
+                                                     layers_to_analyze=self.layers_to_analyze)
+
+            local_expl_model = local_expl_model.fit_explanation()
+            self.local_explanation_models[idx] = local_expl_model.best_explanation
+
+        for im_idx, l_expl in self.local_explanation_models.items():
+            for f_idx in l_expl.feature_ids:
+                f_im = l_expl.get_interpretable_feature(f_idx)
+                f_score = l_expl.get_numerical_explanation().loc[f_idx, [PerturbationScores.col_nPIR, PerturbationScores.col_nPIRP]].to_dict()
+                self.global_explanation.append({"image_id":im_idx, "feature_id":f_idx, "feature_img": f_im, "feature_scores": f_score})
+
+        return self
+
+    @staticmethod
+    def _imscatter(x, y, image, ax=None, zoom=1):
+        if ax is None:
+            ax = plt.gca()
+
+        im = OffsetImage(image, zoom=zoom)
+        x, y = np.atleast_1d(x, y)
+        artists = []
+        for x0, y0 in zip(x, y):
+            ab = AnnotationBbox(im, (x0, y0), xycoords='data', frameon=True)
+            artists.append(ax.add_artist(ab))
+            ax.scatter(x0, y0)
+        ax.update_datalim(np.column_stack([x, y]))
+        ax.autoscale()
+        return artists
+
+    def show_global_explanation(self):
+        if self.global_explanation.__len__() == 0:
+            raise Exception("Fit explanation first.")
+
+        t_size = (50, 50)
+
+        f_p_report = self.global_explanation.copy()
+        f_p_report = sorted(f_p_report, key=lambda x: np.abs(x["feature_scores"][PerturbationScores.col_nPIR]))
+
+        # KDE plot
+        lm = sns.jointplot([fp["feature_scores"][PerturbationScores.col_nPIR] for fp in f_p_report],
+                           [fp["feature_scores"][PerturbationScores.col_nPIRP] for fp in f_p_report],
+                           kind="kde", height=8)
+        ax = lm.ax_joint
+        ax.clear()
+
+        # Image plot
+        for g_expl in f_p_report:
+            f_im = g_expl["feature_img"]
+            f_score = g_expl["feature_scores"]
+
+            t_im = f_im.copy()
+            t_im = t_im.resize(t_size, Image.ANTIALIAS)
+            t_im = np.array(t_im)
+
+            self._imscatter(f_score[PerturbationScores.col_nPIR], f_score[PerturbationScores.col_nPIRP], t_im, ax=ax, zoom=1)
+
+        ax.set_ylim(-1.25, 1.25)
+        ax.set_xlim(-1.15, 1.15)
+        ax.set_xlabel("nPIR")
+        ax.set_ylabel("nPIRP")
+        lm.ax_marg_x.set_title("Class of interest:" + str(self.class_of_interest))
+
+        ax.axvline(0.0, 0.0, c='black')
+        ax.axhline(0.0, 0.0, c='black')
+
+        # Create a Rectangle patch
+        rect1 = Rectangle((-1.15, -1.25), 0.15, 2.5, linewidth=0, edgecolor='r', facecolor='gray', alpha=0.5)
+        rect2 = Rectangle((1.0, -1.25), 0.15, 2.5, linewidth=0, edgecolor='r', facecolor='gray', alpha=0.5)
+
+        rect3 = Rectangle((-1.0, 1.0), 2.0, 0.25, linewidth=0, facecolor='gray', alpha=0.5)
+        rect4 = Rectangle((-1.0, -1.25), 2.0, 0.25, linewidth=0, facecolor='gray', alpha=0.5)
+
+        # Add the patch to the Axes
+        ax.add_patch(rect1)
+        ax.add_patch(rect2)
+        ax.add_patch(rect3)
+        ax.add_patch(rect4)
+
+        ax.grid(True)
+
+        return ax
+
+
+
+
+
