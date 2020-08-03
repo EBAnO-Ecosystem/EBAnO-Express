@@ -501,13 +501,13 @@ class LocalExplanationModel:
         x = self.preprocess_func(input_image)
 
         hc = self.get_hypercolumns(x)
-        print("Hypecolumns shape:", hc.shape) if verbose else None
+        # print("Hypecolumns shape:", hc.shape) if verbose else None
 
         hc_t = hc.transpose([2, 1, 0]).reshape(self.model_input_shape[0] * self.model_input_shape[1], -1)  # e.g. 224*224 = 50176  color transpose, tensor reshape
-        print("Hypecolumns reshaped:", hc_t.shape) if verbose else None
+        # print("Hypecolumns reshaped:", hc_t.shape) if verbose else None
 
         hc_r = self._features_reduction(hc_t)
-        print("Hypecolumns reduced:", hc_r.shape) if verbose else None
+        # print("Hypecolumns reduced:", hc_r.shape) if verbose else None
 
         return hc_r
 
@@ -595,7 +595,7 @@ class ClassGlobalExplanationModel:
         if self.global_explanation.__len__() == 0:
             raise Exception("Fit explanation first.")
 
-        t_size = (50, 50)
+        t_size = (80, 80)
 
         f_p_report = self.global_explanation.copy()
         f_p_report = sorted(f_p_report, key=lambda x: np.abs(x["feature_scores"][PerturbationScores.col_nPIR]))
@@ -603,7 +603,7 @@ class ClassGlobalExplanationModel:
         # KDE plot
         lm = sns.jointplot([fp["feature_scores"][PerturbationScores.col_nPIR] for fp in f_p_report],
                            [fp["feature_scores"][PerturbationScores.col_nPIRP] for fp in f_p_report],
-                           kind="kde", height=12)
+                           kind="kde", height=8)
         ax = lm.ax_joint
         ax.clear()
 
@@ -642,7 +642,7 @@ class ClassGlobalExplanationModel:
 
         ax.grid(True)
 
-        return ax
+        return ax, lm
 
 
 
