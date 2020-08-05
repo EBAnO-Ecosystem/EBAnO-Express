@@ -359,7 +359,8 @@ class LocalExplanation:
 
     @staticmethod
     def _get_visual_explanation_mask(heatmap, cmap):
-        colors = plt.cm.ScalarMappable(cmap=cmap).to_rgba(heatmap)
+        norm = matplotlib.colors.Normalize(vmin=-1.0, vmax=1.0)
+        colors = plt.cm.ScalarMappable(norm=norm, cmap=cmap).to_rgba(heatmap)
         mask = Image.fromarray((colors*255).astype(np.uint8), mode="RGBA")
 
         return mask
@@ -382,7 +383,7 @@ class LocalExplanation:
         # visual explanation
         heatmap_nPIR = np.zeros(self.features_map.shape, np.float32)  # init empty mask
         for f_idx in self.feature_ids:
-            f = self._get_feature_mask(f_idx).astype(np.float32)
+            f = self._get_feature_mask(f_idx).astype(np.bool)
             f = f * self.numerical_explanation[f_idx][PerturbationScores.col_nPIR]
             heatmap_nPIR += f
 
@@ -513,7 +514,7 @@ class LocalExplanationModel:
 
     def compute_features_map(self, hc, n_features):
         hc_n = normalize(hc, norm='l2', axis=1)
-        kmeans_model = KMeans(n_clusters=n_features, max_iter=300, n_jobs=-1)
+        kmeans_model = KMeans(n_clusters=n_features, max_iter=300, n_jobs=-1, random_state=42)
         features_labels = kmeans_model.fit_predict(hc_n)
         features_map = features_labels.reshape(self.model_input_shape[0], self.model_input_shape[1]).astype(np.uint8)
         features_map += 1
