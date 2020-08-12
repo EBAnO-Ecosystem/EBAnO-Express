@@ -216,7 +216,6 @@ class LocalExplanation:
         self.perturbations = {}
         self.numerical_explanation = {}
         self.visual_explanation = None
-
         self.informativeness = None
 
     def predict_with_model(self, img):
@@ -572,7 +571,7 @@ class ClassGlobalExplanationModel:
             for f_idx in l_expl.feature_ids:
                 f_im = l_expl.get_interpretable_feature(f_idx)
                 f_score = l_expl.get_numerical_explanation().loc[f_idx, [PerturbationScores.col_nPIR, PerturbationScores.col_nPIRP]].to_dict()
-                self.global_explanation.append({"image_id":im_idx, "feature_id":f_idx, "feature_img": f_im, "feature_scores": f_score})
+                self.global_explanation.append({"image_id": im_idx, "feature_id": f_idx, "feature_img": f_im, "feature_scores": f_score})
 
         return self
 
