@@ -12,6 +12,20 @@ To have a quick look to EBAnO-Express and how to use it you can check
 1. The [EBAnO_express_Keras_VGG16.ipynb](https://github.com/EBAnO-Ecosystem/EBAnO-Express/blob/master/EBAnO_express_Keras_VGG16.ipynb) with a complete DEMO on VGG16.
 2. The [EBAnO_express_other_models.ipynb](https://github.com/EBAnO-Ecosystem/EBAnO-Express/blob/master/EBAnO_express_other_models.ipynb) with a DEMO on other models.
 
+## Pubblication
+If you use this work in your research or if you would like to reference this project please cite:
+
+- [CodeOcean capsule](https://codeocean.com/capsule/1347940/tree/v1):
+```
+@misc{Ventura_Apiletti_Cerquitelli_2020, 
+title={EBAnO - Explaining the convolutional decision-making process by mining its inner knowledge}, 
+url={https://codeocean.com/capsule/1347940/tree/v1}, 
+DOI={10.24433/CO.6981109.V1}, 
+publisher={Code Ocean}, 
+author={Ventura, Francesco and Apiletti, Daniele and Cerquitelli, Tania}, year={2020} }
+```
+- Explaining the convolutional decision-making process by mining its inner knowledge: **Under Review**
+
 
 ## Documentation
 ### LocalExplanationModel
@@ -45,12 +59,12 @@ class ebano_express.explainer.LocalExplanationModel(input_image, class_of_intere
     A dictionary containing all the produced explanations for the input image.
     Dictionary structure:  
     ```python
-        {
-         2: ebano_express.explainer.LocalExplanation, 
-         3: ebano_express.explainer.LocalExplanation,
-         ...,
-         max_features: ebano_express.explainer.LocalExplanation
-        }
+    {
+     2: ebano_express.explainer.LocalExplanation, 
+     3: ebano_express.explainer.LocalExplanation,
+     ...,
+     max_features: ebano_express.explainer.LocalExplanation
+    }
     ```
 #### Methods:
 - **fit_explanation(self, verbose=False)**  
