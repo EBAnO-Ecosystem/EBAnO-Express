@@ -15,7 +15,7 @@ To have a quick look to EBAnO-Express and how to use it you can check
 ## Pubblication
 If you use this work in your research or if you would like to reference this project please cite:
 
-- [CodeOcean capsule](https://codeocean.com/capsule/1347940/tree/v1):
+- [EBAnO - CodeOcean capsule](https://codeocean.com/capsule/1347940/tree/v1):
 ```
 @misc{Ventura_Apiletti_Cerquitelli_2020, 
 title={EBAnO - Explaining the convolutional decision-making process by mining its inner knowledge}, 
