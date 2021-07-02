@@ -15,14 +15,14 @@ To have a quick look to EBAnO-Express and how to use it you can check
 ## Pubblication
 If you use this work in your research or if you would like to reference this project please cite:
 
-- [EBAnO - CodeOcean capsule](https://codeocean.com/capsule/1347940/tree/v1):
+- [EBAnO - CodeOcean capsule](https://codeocean.com/capsule/1347940/tree/v2):
 ```
 @misc{Ventura_Apiletti_Cerquitelli_2020, 
 title={EBAnO - Explaining the convolutional decision-making process by mining its inner knowledge}, 
-url={https://codeocean.com/capsule/1347940/tree/v1}, 
-DOI={10.24433/CO.6981109.V1}, 
+url={https://codeocean.com/capsule/1347940/tree/v2}, 
+DOI={10.24433/CO.6981109.V2}, 
 publisher={Code Ocean}, 
-author={Ventura, Francesco and Apiletti, Daniele and Cerquitelli, Tania}, year={2020} }
+author={Ventura, Francesco and Greco, Salvatore and Apiletti, Daniele and Cerquitelli, Tania}, year={2020} }
 ```
 - Explaining the convolutional decision-making process by mining its inner knowledge: **Under Review**
 
